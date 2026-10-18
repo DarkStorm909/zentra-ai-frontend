@@ -554,6 +554,7 @@ const toast = document.getElementById("toast");
 
 let busy = false;
 let toastTimer;
+let conversationHistory = [];
 
 function showToast(text) {
   toast.textContent = text;
@@ -611,7 +612,7 @@ async function sendMessage(text) {
     const response = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message })
+      body: JSON.stringify({ message, history: conversationHistory.slice(-12) })
     });
 
     if (!response.ok) {
@@ -620,12 +621,18 @@ async function sendMessage(text) {
 
     const data = await response.json();
     typing.remove();
-    addMessage(
+    const reply =
       typeof data.reply === "string" && data.reply.trim()
         ? data.reply
-        : "The server returned no reply.",
-      "bot"
+        : "The server returned no reply.";
+
+    addMessage(reply, "bot");
+
+    conversationHistory.push(
+      { role: "user", content: message },
+      { role: "assistant", content: reply }
     );
+    conversationHistory = conversationHistory.slice(-12);
   } catch (error) {
     typing.remove();
     addMessage(
@@ -662,6 +669,7 @@ document.querySelectorAll("[data-prompt]").forEach(button => {
 });
 
 function resetChat() {
+  conversationHistory = [];
   messages.replaceChildren();
   messages.style.display = "none";
   welcome.style.display = "block";
