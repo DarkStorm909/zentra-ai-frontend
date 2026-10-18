@@ -554,7 +554,47 @@ const toast = document.getElementById("toast");
 
 let busy = false;
 let toastTimer;
+const STORAGE_KEY = "zentra_current_chat_v1";
 let conversationHistory = [];
+
+function saveConversation() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      history: conversationHistory,
+      updatedAt: Date.now()
+    }));
+  } catch (error) {
+    console.error("ZENTRA storage error:", error);
+    showToast("Couldn't save chat history in this browser.");
+  }
+}
+
+function restoreConversation() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+    if (!saved || !Array.isArray(saved.history)) return;
+
+    conversationHistory = saved.history
+      .filter(item =>
+        item &&
+        ["user", "assistant"].includes(item.role) &&
+        typeof item.content === "string"
+      )
+      .slice(-12);
+
+    if (conversationHistory.length) {
+      welcome.style.display = "none";
+      messages.style.display = "flex";
+
+      for (const item of conversationHistory) {
+        addMessage(item.content, item.role === "user" ? "user" : "bot");
+      }
+    }
+  } catch (error) {
+    console.error("ZENTRA restore error:", error);
+    conversationHistory = [];
+  }
+}
 
 function showToast(text) {
   toast.textContent = text;
@@ -633,6 +673,7 @@ async function sendMessage(text) {
       { role: "assistant", content: reply }
     );
     conversationHistory = conversationHistory.slice(-12);
+    saveConversation();
   } catch (error) {
     typing.remove();
     addMessage(
@@ -670,6 +711,11 @@ document.querySelectorAll("[data-prompt]").forEach(button => {
 
 function resetChat() {
   conversationHistory = [];
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch (error) {
+    console.error("ZENTRA storage clear error:", error);
+  }
   messages.replaceChildren();
   messages.style.display = "none";
   welcome.style.display = "block";
@@ -677,6 +723,8 @@ function resetChat() {
   input.style.height = "auto";
   sidebar.classList.remove("open");
 }
+
+restoreConversation();
 
 document.getElementById("newChat").addEventListener("click", resetChat);
 document.getElementById("homeButton").addEventListener("click", resetChat);
